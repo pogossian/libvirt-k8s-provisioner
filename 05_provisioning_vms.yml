@@ -36,7 +36,7 @@
         project_path: "files/terraform/masters"
         force_init: true
         variables:
-          hostname: "k8s-master"
+          hostname: "node"
           domain: "{{ libvirt.network.domain }}"
           libvirt_network: "{{ libvirt.network.name }}"
           libvirt_pool: "{{ libvirt.storage.pool_name }}"
@@ -46,36 +46,36 @@
         state: present
       register: output_masters
 
-    - terraform:
-        project_path: "files/terraform/workers"
-        force_init: true
-        variables:
-          hostname: "k8s-worker"
-          domain: "{{ libvirt.network.domain }}"
-          libvirt_network: "{{ libvirt.network.name }}"
-          libvirt_pool: "{{ libvirt.storage.pool_name }}"
-          cpu: "{{ k8s.worker_nodes.vcpu }}"
-          memory: "{{ k8s.worker_nodes.mem }}"
-          vm_count: "{{ k8s.worker_nodes.vms }}"
-        state: present
-      register: output_workers
-      when: not rook_ceph.install_rook
+    # - terraform:
+    #     project_path: "files/terraform/workers"
+    #     force_init: true
+    #     variables:
+    #       hostname: "k8s-worker"
+    #       domain: "{{ libvirt.network.domain }}"
+    #       libvirt_network: "{{ libvirt.network.name }}"
+    #       libvirt_pool: "{{ libvirt.storage.pool_name }}"
+    #       cpu: "{{ k8s.worker_nodes.vcpu }}"
+    #       memory: "{{ k8s.worker_nodes.mem }}"
+    #       vm_count: "{{ k8s.worker_nodes.vms }}"
+    #     state: present
+    #   register: output_workers
+    #   when: not rook_ceph.install_rook
 
-    - terraform:
-        project_path: "files/terraform/workers-rook"
-        force_init: true
-        variables:
-          hostname: "k8s-worker"
-          domain: "{{ libvirt.network.domain }}"
-          libvirt_network: "{{ libvirt.network.name }}"
-          libvirt_pool: "{{ libvirt.storage.pool_name }}"
-          cpu: "{{ k8s.worker_nodes.vcpu }}"
-          memory: "{{ k8s.worker_nodes.mem }}"
-          rook_volume_size: "{{ rook_ceph.volume_size }}"
-          vm_count: "{{ k8s.worker_nodes.vms }}"
-        state: present
-      register: output_workers
-      when: rook_ceph.install_rook
+    # - terraform:
+    #     project_path: "files/terraform/workers-rook"
+    #     force_init: true
+    #     variables:
+    #       hostname: "k8s-worker"
+    #       domain: "{{ libvirt.network.domain }}"
+    #       libvirt_network: "{{ libvirt.network.name }}"
+    #       libvirt_pool: "{{ libvirt.storage.pool_name }}"
+    #       cpu: "{{ k8s.worker_nodes.vcpu }}"
+    #       memory: "{{ k8s.worker_nodes.mem }}"
+    #       rook_volume_size: "{{ rook_ceph.volume_size }}"
+    #       vm_count: "{{ k8s.worker_nodes.vms }}"
+    #     state: present
+    #   register: output_workers
+    #   when: rook_ceph.install_rook
 
     - name: Add masters to given group
       add_host:
@@ -92,19 +92,19 @@
         group_children: "k8s_nodes"
       loop: "{{ range(0, k8s.control_plane.vms) | list }}"
 
-    - name: Add workers to given group
-      add_host:
-        hostname: 'k8s-worker-{{ item }}.{{ libvirt.network.domain }}'
-        node_hostname: 'k8s-worker-{{ item }}.{{ libvirt.network.domain }}'
-        node_mac: "{{ output_workers.outputs.macs.value[item]|lower }}"
-        node_fqdn: k8s-worker-{{ item }}.{{ libvirt.network.domain }}
-        ansible_ssh_private_key_file: "id_rsa"
-        ansible_user: kube
-        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
-        groups:
-          - "workers"
-        group_children: "k8s_nodes"
-      loop: "{{ range(0, k8s.worker_nodes.vms) | list }}"
+    # - name: Add workers to given group
+    #   add_host:
+    #     hostname: 'k8s-worker-{{ item }}.{{ libvirt.network.domain }}'
+    #     node_hostname: 'k8s-worker-{{ item }}.{{ libvirt.network.domain }}'
+    #     node_mac: "{{ output_workers.outputs.macs.value[item]|lower }}"
+    #     node_fqdn: k8s-worker-{{ item }}.{{ libvirt.network.domain }}
+    #     ansible_ssh_private_key_file: "id_rsa"
+    #     ansible_user: kube
+    #     ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    #     groups:
+    #       - "workers"
+    #     group_children: "k8s_nodes"
+    #   loop: "{{ range(0, k8s.worker_nodes.vms) | list }}"
 
     - name: Ensure to clean known_hosts
       known_hosts:
@@ -113,28 +113,28 @@
         state: absent
       loop: "{{ query('inventory_hostnames', 'all:!vm_host') }}"
 
-- name: Check connection, rename connection and set facts
-  hosts: masters,workers
-  gather_facts: no
-  tasks:
-    - name: Wait 600 seconds for target connection to become reachable/usable
-      wait_for_connection:
-        timeout: 120
-        delay: 0
-    - ping:
+# - name: Check connection, rename connection and set facts
+#   hosts: masters,workers
+#   gather_facts: no
+#   tasks:
+#     - name: Wait 600 seconds for target connection to become reachable/usable
+#       wait_for_connection:
+#         timeout: 120
+#         delay: 0
+#     - ping:
 
-    - name: add hosts to children groups
-      group_by:
-        key: "{{ group_children }}"
+#     - name: add hosts to children groups
+#       group_by:
+#         key: "{{ group_children }}"
 
-    - debug:
-        var: groups
+#     - debug:
+#         var: groups
 
-    - setup:
-      register: machine_facts
+#     - setup:
+#       register: machine_facts
 
-    - set_fact:
-        host_ip: "{{ machine_facts.ansible_facts.ansible_default_ipv4.address }}"
-        host_interface: "{{ machine_facts.ansible_facts.ansible_default_ipv4.interface }}"
-        host_mac: "{{ machine_facts.ansible_facts.ansible_default_ipv4.macaddress }}"
-        host_fqdn: "{{ machine_facts.ansible_facts.ansible_fqdn }}" 
+#     - set_fact:
+#         host_ip: "{{ machine_facts.ansible_facts.ansible_default_ipv4.address }}"
+#         host_interface: "{{ machine_facts.ansible_facts.ansible_default_ipv4.interface }}"
+#         host_mac: "{{ machine_facts.ansible_facts.ansible_default_ipv4.macaddress }}"
+#         host_fqdn: "{{ machine_facts.ansible_facts.ansible_fqdn }}" 
