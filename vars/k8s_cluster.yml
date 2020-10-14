@@ -6,9 +6,9 @@ k8s:
 # Nodes configuration
 
   control_plane:
-    vcpu: 1
-    mem: 2
-    vms: 3
+    vcpu: 2
+    mem: 4
+    vms: 6
     disk: 30
 
   worker_nodes:
@@ -33,7 +33,7 @@ rook_ceph:
 # Ingress controller configuration [nginx/haproxy]
 
 ingress_controller:
-  install_ingress_controller: true
+  install_ingress_controller: false
   type: nginx
 
 rancher:
